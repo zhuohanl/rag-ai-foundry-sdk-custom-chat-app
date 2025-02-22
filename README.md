@@ -1,0 +1,1 @@
+[Build a custom chat app with Azure AI Foundry SDK](https://learn.microsoft.com/en-us/azure/ai-studio/tutorials/copilot-sdk-create-resources?tabs=windows)
