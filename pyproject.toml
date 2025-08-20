@@ -1,25 +1,17 @@
 [project]
 name = "rag-ai-foundry-sdk-custom-chat-app"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "Your Name",email = "you@example.com"}
-]
+description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11,<3.13.dev0 || >=3.14.dev0,<4.0"
+requires-python = ">=3.13"
 dependencies = [
-    "azure-ai-projects (>=1.0.0b6,<2.0.0)",
-    "azure-ai-inference[prompts] (>=1.0.0b9,<2.0.0)",
-    "azure-identity (>=1.20.0,<2.0.0)",
-    "azure-search-documents (>=11.5.2,<12.0.0)",
-    "pandas (>=2.2.3,<3.0.0)",
-    "python-dotenv (>=1.0.1,<2.0.0)",
-    "opentelemetry-api (>=1.30.0,<2.0.0)",
-    "azure-monitor-opentelemetry (>=1.6.5,<2.0.0)",
-    "azure-ai-evaluation[remote] (>=1.2.0,<2.0.0)",
+    "azure-ai-evaluation[remote]>=1.10.0",
+    "azure-ai-inference[prompts]>=1.0.0b9",
+    "azure-ai-projects==1.0.0b10",
+    "azure-identity>=1.24.0",
+    "azure-monitor-opentelemetry>=1.6.13",
+    "azure-search-documents>=11.5.3",
+    "opentelemetry-api>=1.36.0",
+    "pandas>=2.3.1",
+    "python-dotenv>=1.1.1",
 ]
-
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"

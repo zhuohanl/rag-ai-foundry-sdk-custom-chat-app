@@ -1,9 +1,15 @@
 import os
+import sys
+import pathlib
 import pandas as pd
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import ConnectionType
 from azure.ai.evaluation import evaluate, GroundednessEvaluator
 from azure.identity import DefaultAzureCredential
+
+# Add the src directory to Python path
+src_path = pathlib.Path(__file__).parent.parent / "src"
+sys.path.insert(0, str(src_path))
 
 from chat_with_products import chat_with_products
 
@@ -44,7 +50,10 @@ def evaluate_chat_with_products(query):
 
 # Evaluate must be called inside of __main__, not on import
 if __name__ == "__main__":
-    from config import ASSET_PATH
+    from config import ASSET_PATH, EVAL_OUTPUT_PATH
+
+    # Create the output directory if it doesn't exist
+    os.makedirs(EVAL_OUTPUT_PATH, exist_ok=True)
 
     # workaround for multiprocessing issue on linux
     from pprint import pprint
@@ -71,7 +80,7 @@ if __name__ == "__main__":
             }
         },
         azure_ai_project=project.scope,
-        output_path="./myevalresults.json",
+        output_path=Path(EVAL_OUTPUT_PATH) / "myevalresults.json",
     )
 
     tabular_result = pd.DataFrame(result.get("rows"))

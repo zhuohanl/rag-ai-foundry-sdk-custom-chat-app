@@ -14,7 +14,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set "./assets" as the path where assets are stored, resolving the absolute path:
-ASSET_PATH = pathlib.Path(__file__).parent.resolve() / "assets"
+ASSET_PATH = pathlib.Path(__file__).parent.parent.resolve() / "assets"
+EVAL_OUTPUT_PATH = pathlib.Path(__file__).parent.parent.resolve() / "eval" / "output"
 
 # Configure an root app logger that prints info level logs to stdout
 logger = logging.getLogger("app")
