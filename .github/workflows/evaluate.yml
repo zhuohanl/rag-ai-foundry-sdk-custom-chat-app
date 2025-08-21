@@ -1,0 +1,155 @@
+name: GenAI RAG Evaluation
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'eval/**'
+      - 'assets/**'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'eval/**'
+      - 'assets/**'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    env:
+      GENAI_EVALS_CONFIG_PATH: ${{ github.workspace }}/evaluate-config.json
+      GENAI_EVALS_DATA_PATH: ${{ github.workspace }}/assets/chat_eval_data.jsonl
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv sync
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.OIDC_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.OIDC_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.OIDC_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Write evaluate config for GenAI Evals
+        run: |
+          cat > ${{ env.GENAI_EVALS_CONFIG_PATH }} <<EOF
+          {
+            "data": "${{ env.GENAI_EVALS_DATA_PATH }}",
+            "evaluators": {
+              "groundedness": "GroundednessEvaluator",
+              "coherence": "CoherenceEvaluator",
+              "fluency": "FluencyEvaluator",
+              "relevance": "RelevanceEvaluator"
+            },
+            "ai_model_configuration": {
+              "type": "azure_openai",
+              "azure_endpoint": "${{ secrets.AZURE_OPENAI_ENDPOINT }}",
+              "azure_deployment": "${{ secrets.AZURE_OPENAI_CHAT_DEPLOYMENT }}",
+              "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}",
+              "api_version": "${{ secrets.AZURE_OPENAI_API_VERSION }}"
+            },
+            "target_parameters": {
+              "query": "query"
+            },
+            "evaluator_config": {
+              "default": {
+                "query": "\${data.query}",
+                "response": "\${target.response}",
+                "context": "\${target.context}"
+              }
+            }
+          }
+          EOF
+
+      - name: Run GenAI Evaluation Action
+        id: run-genai-evaluation
+        uses: microsoft/genai-evals@main
+        with:
+          evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
+
+      - name: Run Custom Python Evaluation
+        env:
+          AIPROJECT_CONNECTION_STRING: ${{ secrets.AIPROJECT_CONNECTION_STRING }}
+          AISEARCH_INDEX_NAME: ${{ secrets.AISEARCH_INDEX_NAME }}
+          EMBEDDINGS_MODEL: ${{ secrets.EMBEDDINGS_MODEL }}
+          INTENT_MAPPING_MODEL: ${{ secrets.INTENT_MAPPING_MODEL }}
+          CHAT_MODEL: ${{ secrets.CHAT_MODEL }}
+          EVALUATION_MODEL: ${{ secrets.EVALUATION_MODEL }}
+        run: |
+          uv run python eval/evaluate.py
+
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-results
+          path: |
+            eval/output/
+            *.json
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            try {
+              const resultsPath = path.join(process.env.GITHUB_WORKSPACE, 'eval', 'output', 'myevalresults.json');
+              if (fs.existsSync(resultsPath)) {
+                const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+                const metrics = results.metrics || {};
+                
+                let comment = '## 🤖 GenAI Evaluation Results\n\n';
+                comment += '### Metrics Summary\n';
+                
+                for (const [key, value] of Object.entries(metrics)) {
+                  if (typeof value === 'number') {
+                    comment += `- **${key}**: ${value.toFixed(4)}\n`;
+                  } else {
+                    comment += `- **${key}**: ${value}\n`;
+                  }
+                }
+                
+                comment += '\n### Details\n';
+                comment += `- Total queries evaluated: ${results.rows ? results.rows.length : 'N/A'}\n`;
+                comment += `- Studio URL: ${results.studio_url || 'N/A'}\n`;
+                
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: comment
+                });
+              }
+            } catch (error) {
+              console.log('Could not post evaluation results:', error);
+            }
