@@ -95,35 +95,16 @@ jobs:
             "data": "${{ env.GENAI_EVALS_DATA_PATH }}",
             "target": "target_function:evaluate_target",
             "evaluators": {
-              "groundedness": {
-                "class": "GroundednessEvaluator",
-                "config": {
-                  "query": "\${data.query}",
-                  "response": "\${outputs.response}",
-                  "context": "\${outputs.context}"
-                }
-              },
-              "coherence": {
-                "class": "CoherenceEvaluator", 
-                "config": {
-                  "query": "\${data.query}",
-                  "response": "\${outputs.response}"
-                }
-              },
-              "fluency": {
-                "class": "FluencyEvaluator",
-                "config": {
-                  "query": "\${data.query}",
-                  "response": "\${outputs.response}"
-                }
-              },
-              "relevance": {
-                "class": "RelevanceEvaluator",
-                "config": {
-                  "query": "\${data.query}",
-                  "response": "\${outputs.response}",
-                  "context": "\${outputs.context}"
-                }
+              "groundedness": "GroundednessEvaluator",
+              "coherence": "CoherenceEvaluator",
+              "fluency": "FluencyEvaluator",
+              "relevance": "RelevanceEvaluator"
+            },
+            "evaluator_config": {
+              "default": {
+                "query": "\${data.query}",
+                "response": "\${outputs.response}",
+                "context": "\${outputs.context}"
               }
             },
             "ai_model_configuration": {
