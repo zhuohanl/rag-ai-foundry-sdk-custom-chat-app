@@ -4,7 +4,7 @@ import pathlib
 import pandas as pd
 from azure.ai.projects import AIProjectClient
 from azure.ai.projects.models import ConnectionType
-from azure.ai.evaluation import evaluate, GroundednessEvaluator
+from azure.ai.evaluation import evaluate, GroundednessEvaluator, CoherenceEvaluator, FluencyEvaluator, RelevanceEvaluator
 from azure.identity import DefaultAzureCredential
 
 # Add the src directory to Python path
@@ -32,7 +32,11 @@ evaluator_model = {
     "api_key": connection.key,
 }
 
+# Initialize all evaluators
 groundedness = GroundednessEvaluator(evaluator_model)
+coherence = CoherenceEvaluator(evaluator_model)
+fluency = FluencyEvaluator(evaluator_model)
+relevance = RelevanceEvaluator(evaluator_model)
 
 
 #########################################################################
@@ -71,6 +75,9 @@ if __name__ == "__main__":
         evaluation_name="evaluate_chat_with_products",
         evaluators={
             "groundedness": groundedness,
+            "coherence": coherence,
+            "fluency": fluency,
+            "relevance": relevance,
         },
         evaluator_config={
             "default": {
