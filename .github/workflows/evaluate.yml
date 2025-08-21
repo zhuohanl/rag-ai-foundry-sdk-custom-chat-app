@@ -56,16 +56,75 @@ jobs:
           tenant-id: ${{ secrets.OIDC_AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.OIDC_AZURE_SUBSCRIPTION_ID }}
 
+      - name: Create target function for GenAI Evals
+        run: |
+          cat > target_function.py <<EOF
+          import sys
+          import pathlib
+          import os
+          from dotenv import load_dotenv
+          
+          # Load environment variables
+          load_dotenv()
+          
+          # Add the src directory to Python path
+          src_path = pathlib.Path(__file__).parent / "src"
+          sys.path.insert(0, str(src_path))
+          
+          from chat_with_products import chat_with_products
+          
+          def evaluate_target(query):
+              """Target function for GenAI evaluation."""
+              try:
+                  response = chat_with_products(messages=[{"role": "user", "content": query}])
+                  return {
+                      "response": response["message"].content,
+                      "context": response["context"]["grounding_data"]
+                  }
+              except Exception as e:
+                  return {
+                      "response": f"Error: {str(e)}",
+                      "context": ""
+                  }
+          EOF
+
       - name: Write evaluate config for GenAI Evals
         run: |
           cat > ${{ env.GENAI_EVALS_CONFIG_PATH }} <<EOF
           {
             "data": "${{ env.GENAI_EVALS_DATA_PATH }}",
+            "target": "target_function:evaluate_target",
             "evaluators": {
-              "groundedness": "GroundednessEvaluator",
-              "coherence": "CoherenceEvaluator",
-              "fluency": "FluencyEvaluator",
-              "relevance": "RelevanceEvaluator"
+              "groundedness": {
+                "class": "GroundednessEvaluator",
+                "config": {
+                  "query": "\${data.query}",
+                  "response": "\${outputs.response}",
+                  "context": "\${outputs.context}"
+                }
+              },
+              "coherence": {
+                "class": "CoherenceEvaluator", 
+                "config": {
+                  "query": "\${data.query}",
+                  "response": "\${outputs.response}"
+                }
+              },
+              "fluency": {
+                "class": "FluencyEvaluator",
+                "config": {
+                  "query": "\${data.query}",
+                  "response": "\${outputs.response}"
+                }
+              },
+              "relevance": {
+                "class": "RelevanceEvaluator",
+                "config": {
+                  "query": "\${data.query}",
+                  "response": "\${outputs.response}",
+                  "context": "\${outputs.context}"
+                }
+              }
             },
             "ai_model_configuration": {
               "type": "azure_openai",
@@ -73,16 +132,6 @@ jobs:
               "azure_deployment": "${{ secrets.AZURE_OPENAI_CHAT_DEPLOYMENT }}",
               "api_key": "${{ secrets.AZURE_OPENAI_API_KEY }}",
               "api_version": "${{ secrets.AZURE_OPENAI_API_VERSION }}"
-            },
-            "target_parameters": {
-              "query": "query"
-            },
-            "evaluator_config": {
-              "default": {
-                "query": "\${data.query}",
-                "response": "\${target.response}",
-                "context": "\${target.context}"
-              }
             }
           }
           EOF
@@ -90,6 +139,13 @@ jobs:
       - name: Run GenAI Evaluation Action
         id: run-genai-evaluation
         uses: microsoft/genai-evals@main
+        env:
+          AIPROJECT_CONNECTION_STRING: ${{ secrets.AIPROJECT_CONNECTION_STRING }}
+          AISEARCH_INDEX_NAME: ${{ secrets.AISEARCH_INDEX_NAME }}
+          EMBEDDINGS_MODEL: ${{ secrets.EMBEDDINGS_MODEL }}
+          INTENT_MAPPING_MODEL: ${{ secrets.INTENT_MAPPING_MODEL }}
+          CHAT_MODEL: ${{ secrets.CHAT_MODEL }}
+          EVALUATION_MODEL: ${{ secrets.EVALUATION_MODEL }}
         with:
           evaluate-configuration: ${{ env.GENAI_EVALS_CONFIG_PATH }}
 
